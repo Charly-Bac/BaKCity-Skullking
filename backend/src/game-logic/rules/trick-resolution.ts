@@ -12,6 +12,7 @@ import { getLeadSuit } from './validation';
 
 export interface TrickResult {
   winnerId: string | null;
+  wouldBeWinnerId?: string | null;
   bonuses: IBonus[];
   isDestroyed: boolean;
   isWhiteWhaled: boolean;
@@ -71,12 +72,37 @@ export function determineTrickWinner(plays: IPlayedCard[]): TrickResult {
       return resolveWhiteWhale(plays, bonuses);
     } else {
       // Kraken played after White Whale → Kraken destroys everything
-      return { winnerId: null, bonuses: [], isDestroyed: true, isWhiteWhaled: false };
+      const playsWithoutLeviathans = plays.filter(
+        (p) => !(p.card.kind === 'special' && (p.card.type === SpecialCardType.KRAKEN || p.card.type === SpecialCardType.WHITE_WHALE)),
+      );
+      const wouldBe = playsWithoutLeviathans.length > 0
+        ? resolveNormal(playsWithoutLeviathans, [])
+        : null;
+      return {
+        winnerId: null,
+        wouldBeWinnerId: wouldBe?.winnerId ?? plays[0].playerId,
+        bonuses: [],
+        isDestroyed: true,
+        isWhiteWhaled: false,
+      };
     }
   }
 
   if (hasKraken) {
-    return { winnerId: null, bonuses: [], isDestroyed: true, isWhiteWhaled: false };
+    // Determine who would have won without the Kraken
+    const playsWithoutKraken = plays.filter(
+      (p) => !(p.card.kind === 'special' && p.card.type === SpecialCardType.KRAKEN),
+    );
+    const wouldBe = playsWithoutKraken.length > 0
+      ? resolveNormal(playsWithoutKraken, [])
+      : null;
+    return {
+      winnerId: null,
+      wouldBeWinnerId: wouldBe?.winnerId ?? plays[0].playerId,
+      bonuses: [],
+      isDestroyed: true,
+      isWhiteWhaled: false,
+    };
   }
 
   // --- 2. Check for White Whale ---

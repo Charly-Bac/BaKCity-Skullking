@@ -5,10 +5,16 @@ interface RoundScoreModalProps {
   scores: IScoreEntry;
   roundNumber: number;
   players: ISanitizedPlayer[];
-  onClose: () => void;
+  readyPlayerIds: string[];
+  isReady: boolean;
+  onReady: () => void;
 }
 
-export default function RoundScoreModal({ scores, roundNumber, players, onClose }: RoundScoreModalProps) {
+export default function RoundScoreModal({ scores, roundNumber, players, readyPlayerIds, isReady, onReady }: RoundScoreModalProps) {
+  const humanPlayers = players.filter(p => !p.isBot && !p.isGhost);
+  const readyCount = humanPlayers.filter(p => readyPlayerIds.includes(p.id)).length;
+  const totalHumans = humanPlayers.length;
+
   return (
     <div style={css.overlay}>
       <div style={css.modal}>
@@ -53,7 +59,28 @@ export default function RoundScoreModal({ scores, roundNumber, players, onClose 
             })}
           </tbody>
         </table>
-        <button style={css.closeBtn} onClick={onClose}>Continuer</button>
+
+        {isReady ? (
+          <div style={css.waitingArea}>
+            <p style={css.waitingText}>
+              En attente des autres joueurs... ({readyCount}/{totalHumans})
+            </p>
+            <div style={css.playerReadyRow}>
+              {humanPlayers.map(p => (
+                <span key={p.id} style={{
+                  ...css.readyDot,
+                  background: readyPlayerIds.includes(p.id) ? theme.colors.green : theme.colors.border,
+                }}>
+                  {p.name}
+                </span>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <button style={css.closeBtn} onClick={onReady}>
+            Continuer {totalHumans > 1 && `(${readyCount}/${totalHumans})`}
+          </button>
+        )}
       </div>
     </div>
   );
@@ -112,5 +139,26 @@ const css: Record<string, React.CSSProperties> = {
     fontWeight: 'bold',
     cursor: 'pointer',
     fontFamily: 'inherit',
+  },
+  waitingArea: {
+    textAlign: 'center',
+    padding: '8px 0',
+  },
+  waitingText: {
+    color: theme.colors.textDim,
+    fontSize: 13,
+    marginBottom: 8,
+  },
+  playerReadyRow: {
+    display: 'flex',
+    gap: 8,
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+  },
+  readyDot: {
+    padding: '4px 10px',
+    borderRadius: 12,
+    fontSize: 11,
+    color: theme.colors.text,
   },
 };

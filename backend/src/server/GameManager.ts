@@ -75,6 +75,7 @@ class GameManager {
       updatedAt: Date.now(),
       isDebugMode: fullConfig.isDebugMode,
       creatorId: creatorSocketId,
+      readyForNextRound: new Set(),
     };
 
     this.games.set(gameId, game);

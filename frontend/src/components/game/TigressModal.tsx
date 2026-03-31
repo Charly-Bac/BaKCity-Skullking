@@ -10,7 +10,7 @@ export default function TigressModal({ onChoose }: TigressModalProps) {
     <div style={css.overlay}>
       <div style={css.modal}>
         <h2 style={css.title}>Tigresse</h2>
-        <p style={css.desc}>Choisissez le r\u00f4le de la Tigresse</p>
+        <p style={css.desc}>Choisissez le rôle de la Tigresse</p>
         <div style={css.buttons}>
           <button style={css.pirateBtn} onClick={() => onChoose(TigressChoice.PIRATE)}>
 {'\u2694'} Pirate

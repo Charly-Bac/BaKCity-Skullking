@@ -9,15 +9,15 @@ export const TRICK_DISPLAY_MS = 2000;
 export const ROUND_SCORE_DISPLAY_MS = 5000;
 
 // Debug timers
-export const DEBUG_BID_TIMEOUT_MS = 3000;
-export const DEBUG_PLAY_TIMEOUT_MS = 3000;
-export const DEBUG_POWER_TIMEOUT_MS = 2000;
+export const DEBUG_BID_TIMEOUT_MS = 15000;
+export const DEBUG_PLAY_TIMEOUT_MS = 15000;
+export const DEBUG_POWER_TIMEOUT_MS = 10000;
 export const DEBUG_TRICK_DISPLAY_MS = 500;
 
 // Bot timing
 export const BOT_THINKING_MIN_MS = 2000;
 export const BOT_THINKING_MAX_MS = 5000;
-export const DEBUG_BOT_THINKING_MS = 500;
+export const DEBUG_BOT_THINKING_MS = 300;
 
 // --- Game Constants ---
 

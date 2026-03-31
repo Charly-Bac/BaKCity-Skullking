@@ -19,12 +19,13 @@ export interface GameState {
   hand: ICard[];
   validCardIds: string[];
   currentTurnPlayerId: string | null;
+  playTimeoutMs: number;
   bidRequest: { maxBid: number; timeoutMs: number } | null;
   tigressPending: boolean;
   piratePowerRequest: { type: PiratePowerType; pirateName: PirateName; timeoutMs: number } | null;
   harryAdjustRequest: { currentBid: number; timeoutMs: number } | null;
   trickResult: { trick: ITrick; winnerId: string | null; bonuses: IBonus[] } | null;
-  roundScores: { scores: IScoreEntry; roundNumber: number } | null;
+  roundScores: { scores: IScoreEntry; roundNumber: number; readyPlayerIds: string[] } | null;
   gameEndResult: { finalScores: IScoreEntry[]; winnerId: string; winnerName: string } | null;
   willDrawnCards: ICard[] | null;
   juanitaPeekCards: ICard[] | null;
@@ -40,6 +41,7 @@ export function useGameState() {
     hand: [],
     validCardIds: [],
     currentTurnPlayerId: null,
+    playTimeoutMs: 0,
     bidRequest: null,
     tigressPending: false,
     piratePowerRequest: null,
@@ -142,19 +144,11 @@ export function useGameState() {
     onBidPlaced: useCallback((data: any) => {
       setState((s) => {
         if (!s.game) return s;
-        // Clear bidRequest if it's our own bid
         const isMyBid = data.playerId === s.playerId;
         return {
           ...s,
           bidRequest: isMyBid ? null : s.bidRequest,
-          game: {
-            ...s.game,
-            players: s.game.players.map((p) =>
-              p.id === data.playerId
-                ? { ...p, roundState: { ...p.roundState, bid: data.bid } }
-                : p,
-            ),
-          },
+          // Don't update other players' bids — they are hidden until all_bids_placed
         };
       });
     }, []),
@@ -179,6 +173,7 @@ export function useGameState() {
         ...s,
         currentTurnPlayerId: data.playerId,
         validCardIds: data.validCardIds,
+        playTimeoutMs: data.timeoutMs || 0,
         trickResult: null,
       }));
     }, []),
@@ -204,8 +199,11 @@ export function useGameState() {
       });
     }, []),
 
-    onTigressChoiceRequest: useCallback((_data: any) => {
-      setState((s) => ({ ...s, tigressPending: true }));
+    onTigressChoiceRequest: useCallback((data: any) => {
+      setState((s) => {
+        if (data.playerId && data.playerId !== s.playerId) return s;
+        return { ...s, tigressPending: true };
+      });
     }, []),
 
     onTrickResolved: useCallback((data: any) => {
@@ -260,7 +258,7 @@ export function useGameState() {
 
     onRoundScored: useCallback((data: any) => {
       setState((s) => {
-        if (!s.game) return { ...s, roundScores: data };
+        if (!s.game) return { ...s, roundScores: { ...data, readyPlayerIds: data.readyPlayerIds || [] } };
         const updatedPlayers = s.game.players.map((p) => {
           const scoreInfo = data.scores.scores.find((sc: any) => sc.playerId === p.id);
           return scoreInfo ? { ...p, score: scoreInfo.totalScore } : p;
@@ -268,8 +266,18 @@ export function useGameState() {
         return {
           ...s,
           game: { ...s.game, players: updatedPlayers, scores: [...s.game.scores, data.scores] },
-          roundScores: data,
+          roundScores: { ...data, readyPlayerIds: data.readyPlayerIds || [] },
           hand: [],
+        };
+      });
+    }, []),
+
+    onPlayerReadyNextRound: useCallback((data: any) => {
+      setState((s) => {
+        if (!s.roundScores) return s;
+        return {
+          ...s,
+          roundScores: { ...s.roundScores, readyPlayerIds: data.readyPlayerIds || [] },
         };
       });
     }, []),
@@ -366,7 +374,7 @@ export function useGameState() {
   const resetState = useCallback(() => {
     setState({
       game: null, playerId: null, persistentId: null, roomCode: null,
-      hand: [], validCardIds: [], currentTurnPlayerId: null,
+      hand: [], validCardIds: [], currentTurnPlayerId: null, playTimeoutMs: 0,
       bidRequest: null, tigressPending: false, piratePowerRequest: null,
       harryAdjustRequest: null, trickResult: null, roundScores: null,
       gameEndResult: null, willDrawnCards: null, juanitaPeekCards: null, error: null,

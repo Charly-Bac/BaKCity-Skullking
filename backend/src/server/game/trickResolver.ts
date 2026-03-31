@@ -25,6 +25,7 @@ export function resolveTrick(game: IGame, io: Server): void {
 
   const result = determineTrickWinner(trick.plays);
   trick.winnerId = result.winnerId;
+  trick.wouldBeWinnerId = result.wouldBeWinnerId;
   trick.bonuses = result.bonuses;
   trick.isDestroyed = result.isDestroyed;
   trick.isWhiteWhaled = result.isWhiteWhaled;
@@ -94,8 +95,8 @@ export function resolveTrick(game: IGame, io: Server): void {
     }
   }
 
-  // No interactive power — proceed after brief delay
-  const delay = game.isDebugMode ? 200 : 1500;
+  // No interactive power — proceed after animation delay
+  const delay = game.isDebugMode ? 1000 : 2500;
   const timer = setTimeout(() => {
     checkRoundEnd(game, io);
   }, delay);

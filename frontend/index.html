@@ -2,11 +2,28 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#0a0e17" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="description" content="Skull King - Le jeu de plis pirate en ligne" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>Skull King</title>
     <style>
       * { margin: 0; padding: 0; box-sizing: border-box; }
-      body { font-family: 'Georgia', serif; background: #0a0e17; color: #e8dcc8; }
+      body {
+        font-family: 'Georgia', serif;
+        background: #0a0e17;
+        color: #e8dcc8;
+        overflow: hidden;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-touch-callout: none;
+        -webkit-user-select: none;
+        user-select: none;
+      }
+      /* Allow text selection on inputs */
+      input, textarea { -webkit-user-select: text; user-select: text; }
     </style>
   </head>
   <body>

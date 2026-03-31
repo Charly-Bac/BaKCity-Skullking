@@ -193,15 +193,15 @@ const css: Record<string, React.CSSProperties> = {
   container: {
     maxWidth: 500,
     margin: '0 auto',
-    padding: '40px 20px',
-    minHeight: '100vh',
+    padding: '20px 16px',
+    minHeight: '100dvh',
   },
   header: {
     textAlign: 'center',
-    marginBottom: 40,
+    marginBottom: 24,
   },
   title: {
-    fontSize: 48,
+    fontSize: 'clamp(32px, 8vw, 48px)' as any,
     color: theme.colors.gold,
     fontFamily: "'Georgia', serif",
     textShadow: '2px 2px 4px rgba(0,0,0,0.5)',

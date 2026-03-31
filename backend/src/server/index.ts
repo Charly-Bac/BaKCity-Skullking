@@ -5,12 +5,13 @@ import cors from 'cors';
 import { registerAllEvents } from './events';
 
 const app = express();
-app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+const corsOrigin = process.env.CORS_ORIGIN || 'http://localhost:5173';
+app.use(cors({ origin: corsOrigin, credentials: true }));
 app.use(express.json());
 
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: 'http://localhost:5173', methods: ['GET', 'POST'] },
+  cors: { origin: corsOrigin, methods: ['GET', 'POST'] },
 });
 
 io.on('connection', (socket) => {

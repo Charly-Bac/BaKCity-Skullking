@@ -1,7 +1,8 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../hooks/GameContext';
 import { theme } from '../styles/theme';
+import RulesBook from '../components/game/RulesBook';
 
 export default function LobbyPage() {
   const { roomCode } = useParams<{ roomCode: string }>();
@@ -13,6 +14,8 @@ export default function LobbyPage() {
       navigate(`/game/${roomCode}`);
     }
   }, [state.game?.phase]);
+
+  const [showRules, setShowRules] = useState(false);
 
   const handleLeave = () => {
     actions.leaveRoom();
@@ -86,6 +89,21 @@ export default function LobbyPage() {
           >
             + Ajouter un bot
           </button>
+        )}
+      </div>
+
+      {/* Règles */}
+      <div style={css.rulesSection}>
+        <button
+          style={css.rulesToggle}
+          onClick={() => setShowRules(!showRules)}
+        >
+          {showRules ? '\u25BC' : '\u25B6'} R&egrave;gles du jeu
+        </button>
+        {showRules && (
+          <div style={css.rulesContent}>
+            <RulesBook />
+          </div>
         )}
       </div>
 
@@ -222,6 +240,31 @@ const css: Record<string, React.CSSProperties> = {
     cursor: 'pointer',
     fontSize: 14,
     fontFamily: 'inherit',
+  },
+  rulesSection: {
+    marginBottom: 20,
+  },
+  rulesToggle: {
+    width: '100%',
+    padding: '12px 16px',
+    background: theme.colors.bgLight,
+    border: `1px solid ${theme.colors.border}`,
+    borderRadius: 12,
+    color: theme.colors.gold,
+    fontSize: 15,
+    fontWeight: 'bold',
+    cursor: 'pointer',
+    textAlign: 'left',
+    fontFamily: 'inherit',
+  },
+  rulesContent: {
+    background: theme.colors.bgLight,
+    border: `1px solid ${theme.colors.border}`,
+    borderTop: 'none',
+    borderRadius: '0 0 12px 12px',
+    padding: '12px 16px',
+    maxHeight: 500,
+    overflowY: 'auto',
   },
   startBtn: {
     width: '100%',

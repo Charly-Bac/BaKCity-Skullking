@@ -14,17 +14,17 @@ interface CardSVGProps {
 }
 
 const SUIT_SYMBOLS: Record<string, string> = {
-  parrot: '\u{1F99C}',
-  treasure_map: '\u{1F5FA}',
-  treasure_chest: '\u{1F4B0}',
-  jolly_roger: '\u2620',
+  parrot: '\u{1F7E2}',
+  treasure_map: '\u{1F7E3}',
+  treasure_chest: '\u{1F7E1}',
+  jolly_roger: '\u26AB',
 };
 
 const SUIT_NAMES: Record<string, string> = {
-  parrot: 'Perroquet',
-  treasure_map: 'Carte',
-  treasure_chest: 'Coffre',
-  jolly_roger: 'Pirate',
+  parrot: 'Vert',
+  treasure_map: 'Violet',
+  treasure_chest: 'Jaune',
+  jolly_roger: 'Noir',
 };
 
 const SPECIAL_SYMBOLS: Record<string, string> = {
@@ -76,9 +76,6 @@ export default function CardSVG({
     );
   }
 
-  const borderColor = selected ? theme.colors.gold
-    : highlighted ? '#4ade80'
-    : disabled ? '#333' : '#555';
   const opacity = disabled ? 0.4 : 1;
 
   const wrapperStyle: React.CSSProperties = {
@@ -90,6 +87,8 @@ export default function CardSVG({
     const suitColor = theme.suits[card.suit as keyof typeof theme.suits] || '#888';
     const bgColor = theme.suitBg[card.suit as keyof typeof theme.suitBg] || '#111';
     const symbol = SUIT_SYMBOLS[card.suit] || '?';
+    const borderColor = selected ? theme.colors.gold
+      : disabled ? '#333' : suitColor;
 
     return (
       <div style={wrapperStyle} onClick={!disabled ? onClick : undefined} data-card-id={card.id}>
@@ -110,7 +109,24 @@ export default function CardSVG({
   // Special card
   const specialColor = theme.special[card.type as keyof typeof theme.special] || '#888';
   const symbol = SPECIAL_SYMBOLS[card.type] || '?';
-  const name = card.pirateName ? PIRATE_DISPLAY[card.pirateName] || card.pirateName : SPECIAL_NAMES[card.type] || card.type;
+
+  // Pirates: show "Pirate" as label, name below. Others: show card name.
+  const isPirate = card.type === SpecialCardType.PIRATE;
+  const primaryLabel = isPirate ? 'Pirate' : (SPECIAL_NAMES[card.type] || card.type);
+  const secondaryLabel = isPirate && card.pirateName ? (PIRATE_DISPLAY[card.pirateName] || card.pirateName) : null;
+
+  // Special card background colors
+  const specialBgColors: Record<string, string> = {
+    escape: '#0d1a2e',
+    pirate: '#1a0808',
+    tigress: '#1a1008',
+    skull_king: '#0d0d0d',
+    siren: '#081a1e',
+    kraken: '#1a0a0a',
+    white_whale: '#1a1e22',
+    loot: '#1a1408',
+  };
+  const specialBg = specialBgColors[card.type] || '#0d1220';
 
   return (
     <div style={wrapperStyle} onClick={!disabled ? onClick : undefined} data-card-id={card.id}>
@@ -118,12 +134,12 @@ export default function CardSVG({
       width={width} height={height} viewBox="0 0 100 140"
       style={{ opacity, transition: 'transform 0.15s' }}
     >
-      <rect x="2" y="2" width="96" height="136" rx="8" fill="#0d1220" stroke={selected ? theme.colors.gold : specialColor} strokeWidth={selected ? 3 : 2} />
+      <rect x="2" y="2" width="96" height="136" rx="8" fill={specialBg} stroke={selected ? theme.colors.gold : specialColor} strokeWidth={selected ? 3 : 2} />
       <rect x="6" y="6" width="88" height="128" rx="6" fill="none" stroke={specialColor} strokeWidth="1" opacity="0.3" />
-      <text x="50" y="70" textAnchor="middle" fontSize="36">{symbol}</text>
-      <text x="50" y="100" textAnchor="middle" fontSize="11" fontWeight="bold" fill={specialColor}>{name}</text>
-      {card.type === SpecialCardType.PIRATE && card.pirateName && (
-        <text x="50" y="118" textAnchor="middle" fontSize="9" fill="#8a9ab5">Pirate</text>
+      <text x="50" y="65" textAnchor="middle" fontSize="36">{symbol}</text>
+      <text x="50" y="95" textAnchor="middle" fontSize="11" fontWeight="bold" fill={specialColor}>{primaryLabel}</text>
+      {secondaryLabel && (
+        <text x="50" y="112" textAnchor="middle" fontSize="10" fill="#8a9ab5">{secondaryLabel}</text>
       )}
     </svg>
     </div>

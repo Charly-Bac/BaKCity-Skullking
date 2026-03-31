@@ -236,6 +236,7 @@ function resetGameForRematch(game: IGame): void {
   game.pendingTigressPlayerId = undefined;
   game.logs = [];
   game.scores = [];
+  game.readyForNextRound = new Set();
 
   gameManager.clearGameTimers(game.id);
 

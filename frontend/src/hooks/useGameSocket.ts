@@ -85,6 +85,7 @@ export function useGameSocket(handlers: GameEventHandlers) {
       ['juanita_peek', 'onJuanitaPeek'],
       ['harry_adjust_request', 'onHarryAdjustRequest'],
       ['round_scored', 'onRoundScored'],
+      ['player_ready_next_round', 'onPlayerReadyNextRound'],
       ['game_ended', 'onGameEnded'],
       ['game_state', 'onGameState'],
       ['game_state_updated', 'onGameStateUpdated'],
@@ -164,6 +165,10 @@ export function useGameSocket(handlers: GameEventHandlers) {
     socketRef.current?.emit('harry_adjust_bid', { adjustment });
   }, []);
 
+  const readyForNextRound = useCallback(() => {
+    socketRef.current?.emit('ready_for_next_round');
+  }, []);
+
   const requestGameState = useCallback((roomCode: string, persistentId: string) => {
     socketRef.current?.emit('request_game_state', { roomCode, persistentId });
   }, []);
@@ -182,7 +187,7 @@ export function useGameSocket(handlers: GameEventHandlers) {
       createRoom, joinRoom, leaveRoom, addBots, removeBot,
       startGame, quickStart, submitBid, playCard, tigressChoice,
       rosieChooseLeader, willDiscard, rascalBet, harryAdjustBid,
-      requestGameState, rematch, updateConfig,
+      requestGameState, rematch, updateConfig, readyForNextRound,
     },
   };
 }

@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { ICard } from '../../types/game';
 import CardSVG from '../cards/CardSVG';
 import { theme } from '../../styles/theme';
@@ -8,9 +9,13 @@ interface PlayerHandProps {
   isMyTurn: boolean;
   onPlayCard: (cardId: string) => void;
   selectedCardId?: string | null;
+  cardWidth?: number;
+  cardHeight?: number;
 }
 
-export default function PlayerHand({ hand, validCardIds, isMyTurn, onPlayCard, selectedCardId }: PlayerHandProps) {
+export default function PlayerHand({ hand, validCardIds, isMyTurn, onPlayCard, selectedCardId, cardWidth = 90, cardHeight = 126 }: PlayerHandProps) {
+  const [hoveredId, setHoveredId] = useState<string | null>(null);
+
   return (
     <div style={css.container}>
       <div style={css.label}>
@@ -19,23 +24,34 @@ export default function PlayerHand({ hand, validCardIds, isMyTurn, onPlayCard, s
       <div style={css.cardsRow}>
         {hand.map((card) => {
           const isValid = isMyTurn && validCardIds.includes(card.id);
+          const isHovered = hoveredId === card.id;
+          const isSelected = selectedCardId === card.id;
+
+          let transform = 'translate(0, 0)';
+          if (isSelected) {
+            transform = 'translate(2px, -10px)';
+          } else if (isHovered) {
+            transform = 'translate(2px, -8px)';
+          }
+
           return (
             <div
               key={card.id}
               style={{
                 ...css.cardWrapper,
                 ...(isValid ? css.validCard : {}),
-                transform: selectedCardId === card.id ? 'translateY(-10px)' : 'translateY(0)',
+                transform,
               }}
+              onMouseEnter={() => setHoveredId(card.id)}
+              onMouseLeave={() => setHoveredId(null)}
             >
               <CardSVG
                 card={card}
-                width={90}
-                height={126}
+                width={cardWidth}
+                height={cardHeight}
                 onClick={isValid ? () => onPlayCard(card.id) : undefined}
                 disabled={isMyTurn && !isValid}
-                highlighted={isValid}
-                selected={selectedCardId === card.id}
+                selected={isSelected}
               />
             </div>
           );

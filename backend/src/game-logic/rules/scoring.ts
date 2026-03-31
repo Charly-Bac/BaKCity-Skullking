@@ -54,39 +54,36 @@ function calculateClassic(
 
   if (hitBid) {
     if (bid === 0) {
-      // Bid 0 correct: +10 × round number
       basePoints = 10 * roundNumber;
     } else {
-      // Bid N correct: +20 × N
       basePoints = 20 * bid;
     }
 
-    // Bonuses only apply if bid is correct
-    bonusPoints = nonLootBonuses.reduce((sum, b) => sum + b.points, 0);
-
-    // Rascal bet bonus (from Rascal pirate power)
+    // Rascal bet bonus
     if (player.roundState.rascalBetAmount) {
       bonusPoints += player.roundState.rascalBetAmount;
     }
-
-    // Loot alliance: only if both players hit bid
-    for (const lb of lootBonuses) {
-      // The loot bonus is always valid if this player hit bid
-      // (the alliance partner is checked separately)
-      bonusPoints += lb.points;
-    }
   } else {
     if (bid === 0) {
-      // Bid 0 wrong: -10 × round number
       basePoints = -10 * roundNumber;
     } else {
-      // Bid wrong: -10 × diff
       basePoints = -10 * diff;
     }
 
     // Rascal bet: lose the bet amount if bid missed
     if (player.roundState.rascalBetAmount) {
       bonusPoints -= player.roundState.rascalBetAmount;
+    }
+  }
+
+  // Capture bonuses always apply (14s, SK/Pirate, Siren/SK)
+  bonusPoints += nonLootBonuses.reduce((sum, b) => sum + b.points, 0);
+
+  // Loot alliance: bonus only if both the winner and the loot player hit their bid
+  for (const lb of lootBonuses) {
+    const sourceHitBid = lb.sourcePlayerId ? (playerHitBidMap.get(lb.sourcePlayerId) ?? false) : true;
+    if (hitBid && sourceHitBid) {
+      bonusPoints += lb.points;
     }
   }
 
@@ -140,23 +137,24 @@ function calculateRascal(
     }
   }
 
-  // Bonuses scale with multiplier
-  const rawBonusPoints = nonLootBonuses.reduce((sum, b) => sum + b.points, 0);
-  let bonusPoints = Math.floor(rawBonusPoints * bonusMultiplier);
+  // Capture bonuses always apply at full value
+  let bonusPoints = nonLootBonuses.reduce((sum, b) => sum + b.points, 0);
 
-  // Loot alliance
+  // Loot alliance: bonus only if both players hit their bid
   for (const lb of lootBonuses) {
-    bonusPoints += Math.floor(lb.points * bonusMultiplier);
+    const sourceHitBid = lb.sourcePlayerId ? (playerHitBidMap.get(lb.sourcePlayerId) ?? false) : true;
+    if (hitBid && sourceHitBid) {
+      bonusPoints += lb.points;
+    }
   }
 
-  // Rascal pirate bet
+  // Rascal pirate bet scales with accuracy
   if (player.roundState.rascalBetAmount) {
     if (hitBid) {
       bonusPoints += player.roundState.rascalBetAmount;
     } else if (diff === 1 && !hasCannonball) {
       bonusPoints += Math.floor(player.roundState.rascalBetAmount / 2);
     }
-    // diff >= 2 or cannonball miss: lose nothing extra in Rascal mode (just 0 bonus)
   }
 
   const roundScore = basePoints + bonusPoints;

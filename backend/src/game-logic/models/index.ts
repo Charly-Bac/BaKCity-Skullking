@@ -91,6 +91,7 @@ export interface IBonus {
   playerId: string;
   type: BonusType;
   points: number;
+  sourcePlayerId?: string;
 }
 
 // --- Pirate Powers ---
@@ -118,6 +119,7 @@ export interface ITrick {
   leadPlayerId: string;
   leadSuit: Suit | null;
   winnerId: string | null;
+  wouldBeWinnerId?: string | null;
   bonuses: IBonus[];
   isDestroyed: boolean;
   isWhiteWhaled: boolean;
@@ -231,6 +233,7 @@ export interface IGame {
   updatedAt: number;
   isDebugMode: boolean;
   creatorId: string;
+  readyForNextRound: Set<string>;
 }
 
 // --- Sanitized Game (sent to clients) ---

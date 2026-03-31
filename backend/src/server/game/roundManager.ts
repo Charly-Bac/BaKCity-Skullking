@@ -57,7 +57,7 @@ export function startRound(game: IGame, io: Server): void {
 
   io.to(game.roomCode).emit('bid_request', {
     maxBid: game.roundNumber,
-    timeoutMs: game.config.timerSeconds > 0 ? timeoutMs : 0,
+    timeoutMs: game.isDebugMode ? 0 : (game.config.timerSeconds > 0 ? timeoutMs : 0),
   });
 
   // Bot bids
@@ -75,8 +75,8 @@ export function startRound(game: IGame, io: Server): void {
     }
   }
 
-  // Auto-bid timer for human players
-  if (game.config.timerSeconds > 0) {
+  // Auto-bid timer for human players (disabled in debug mode)
+  if (game.config.timerSeconds > 0 && !game.isDebugMode) {
     const timer = setTimeout(() => {
       autoBidAllPending(game, io);
     }, timeoutMs);
@@ -100,8 +100,9 @@ export function handleBidInternal(game: IGame, playerId: string, bid: number, io
   player.roundState.bid = bid;
   gameManager.updateGame(game);
 
-  io.to(game.roomCode).emit('bid_placed', { playerId, bid });
-  pushLog(game, `${player.name} mise ${bid}`, 'bid_placed', playerId);
+  // Don't reveal bid value to other players — only confirm someone has bid
+  io.to(game.roomCode).emit('bid_placed', { playerId });
+  pushLog(game, `${player.name} a misé`, 'bid_placed', playerId);
 
   // Check if all bids placed
   const activePlayers = game.players.filter((p) => !p.isGhost);
@@ -149,8 +150,11 @@ export function startTrick(game: IGame, io: Server, overrideLeaderId?: string): 
     const prevTrick = game.currentRound.tricks[game.currentRound.tricks.length - 1];
     if (prevTrick.winnerId) {
       leadIndex = game.players.findIndex((p) => p.id === prevTrick.winnerId);
-    } else {
+    } else if (prevTrick.wouldBeWinnerId) {
       // Trick was destroyed — would-be winner leads
+      leadIndex = game.players.findIndex((p) => p.id === prevTrick.wouldBeWinnerId);
+    } else {
+      // Fallback
       leadIndex = (game.currentRound.dealerIndex + trickNumber) % game.players.length;
     }
   }
@@ -212,7 +216,7 @@ export function promptNextPlayer(game: IGame, io: Server): void {
 
   io.to(game.roomCode).emit('play_turn', {
     playerId,
-    timeoutMs: game.config.timerSeconds > 0 ? timeoutMs : 0,
+    timeoutMs: game.isDebugMode ? 0 : (game.config.timerSeconds > 0 ? timeoutMs : 0),
     validCardIds,
   });
 
@@ -226,7 +230,6 @@ export function promptNextPlayer(game: IGame, io: Server): void {
         const cardId = bot.ai.chooseCard(player, trick);
         handlePlayCardInternal(game, playerId, cardId, io);
       } else if (player.isGhost) {
-        // Barbe Grise: play random valid card
         if (validCardIds.length > 0) {
           const randomId = validCardIds[Math.floor(Math.random() * validCardIds.length)];
           handlePlayCardInternal(game, playerId, randomId, io);
@@ -234,8 +237,8 @@ export function promptNextPlayer(game: IGame, io: Server): void {
       }
     }, delay);
     gameManager.addGameTimer(game.id, timer);
-  } else if (game.config.timerSeconds > 0) {
-    // Auto-play timer for humans
+  } else if (game.config.timerSeconds > 0 && !game.isDebugMode) {
+    // Auto-play timer for humans (disabled in debug mode)
     const timer = setTimeout(() => {
       const { autoPlayCard } = require('../../game-logic/actions/play-card');
       const result = autoPlayCard(game, playerId);
@@ -289,15 +292,16 @@ export function handlePlayCardInternal(
   }
 
   const result = playCard(game, playerId, cardId, tigressChoice);
+  if (result.needsTigressChoice) {
+    game.pendingTigressPlayerId = playerId;
+    gameManager.updateGame(game);
+    io.to(game.roomCode).emit('tigress_choice_request', {
+      playerId,
+      timeoutMs: 10000,
+    });
+    return;
+  }
   if (!result.success) {
-    if (result.needsTigressChoice) {
-      game.pendingTigressPlayerId = playerId;
-      gameManager.updateGame(game);
-      io.to(playerId).emit('tigress_choice_request', {
-        timeoutMs: 10000,
-      });
-      return;
-    }
     return;
   }
 
@@ -321,8 +325,12 @@ export function handlePlayCardInternal(
   } else {
     promptNextPlayer(game, io);
   }
-  } catch (err) {
+  } catch (err: any) {
     console.error('[handlePlayCardInternal] Error:', err);
+    // In debug mode, send error to client
+    if (game.isDebugMode) {
+      io.to(game.roomCode).emit('error', { message: `[DEBUG] ${err?.message || err}` });
+    }
   }
 }
 

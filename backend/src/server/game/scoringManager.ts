@@ -9,6 +9,7 @@ import {
 } from '../../game-logic/models/index';
 import { calculateRoundScore } from '../../game-logic/rules/scoring';
 import { gameManager } from '../GameManager';
+import { broadcastGameState } from '../socket-utils';
 import { checkGameEnd } from './roundManager';
 import { generateLogId, getPowerTimeout, getBotThinkingDelay } from '../../game-logic/utils/constants';
 import { botManager } from '../bots/BotManager';
@@ -24,6 +25,7 @@ export function endRound(game: IGame, io: Server): void {
   if (harryPower && harryPower.pirateName === PirateName.HARRY) {
     game.phase = GamePhase.PIRATE_POWER;
     gameManager.updateGame(game);
+    broadcastGameState(game, io);
 
     const timeoutMs = getPowerTimeout(game.isDebugMode);
     io.to(game.roomCode).emit('harry_adjust_request', {
@@ -45,11 +47,14 @@ export function endRound(game: IGame, io: Server): void {
       }
     }
 
-    // Timeout for humans
-    if (!harryPlayer?.isBot && game.config.timerSeconds > 0) {
+    // Timeout for humans (fallback if no timer configured)
+    if (!harryPlayer?.isBot) {
+      const humanTimeout = game.config.timerSeconds > 0 ? timeoutMs : 30000;
       const timer = setTimeout(() => {
-        finishHarryAndScore(game, io, 0);
-      }, timeoutMs);
+        if (game.pendingPiratePower?.pirateName === PirateName.HARRY) {
+          finishHarryAndScore(game, io, 0);
+        }
+      }, humanTimeout);
       gameManager.addGameTimer(game.id, timer);
     }
 
@@ -128,17 +133,52 @@ function applyRoundScoring(game: IGame, io: Server): void {
 
   pushLog(game, `Scores de la manche ${game.roundNumber} calculés`, 'round_scored');
 
+  // Reset ready set and auto-ready bots
+  game.readyForNextRound = new Set();
+  for (const player of game.players) {
+    if (player.isBot || player.isGhost) {
+      game.readyForNextRound.add(player.id);
+    }
+  }
+  gameManager.updateGame(game);
+
   io.to(game.roomCode).emit('round_scored', {
     scores: entry,
     roundNumber: game.roundNumber,
+    readyPlayerIds: Array.from(game.readyForNextRound),
   });
 
-  // Delay before next round
-  const delay = game.isDebugMode ? 300 : 3000;
+  // Check if all players are already ready (all bots game)
+  checkAllReady(game, io);
+
+  // Safety timeout: 60s max wait
   const timer = setTimeout(() => {
-    checkGameEnd(game, io);
-  }, delay);
+    if (game.phase === GamePhase.ROUND_SCORING) {
+      checkGameEnd(game, io);
+    }
+  }, 60000);
   gameManager.addGameTimer(game.id, timer);
+}
+
+export function playerReadyForNextRound(game: IGame, playerId: string, io: Server): void {
+  if (game.phase !== GamePhase.ROUND_SCORING) return;
+  game.readyForNextRound.add(playerId);
+  gameManager.updateGame(game);
+
+  io.to(game.roomCode).emit('player_ready_next_round', {
+    playerId,
+    readyPlayerIds: Array.from(game.readyForNextRound),
+  });
+
+  checkAllReady(game, io);
+}
+
+function checkAllReady(game: IGame, io: Server): void {
+  const humanPlayers = game.players.filter(p => !p.isBot && !p.isGhost && !p.isDisconnected);
+  const allReady = humanPlayers.every(p => game.readyForNextRound.has(p.id));
+  if (allReady) {
+    checkGameEnd(game, io);
+  }
 }
 
 function pushLog(game: IGame, message: string, type: any, playerId?: string): void {

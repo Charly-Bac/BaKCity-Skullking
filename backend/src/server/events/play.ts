@@ -2,6 +2,7 @@ import { Server, Socket } from 'socket.io';
 import { gameManager } from '../GameManager';
 import { GamePhase, TigressChoice } from '../../game-logic/models/index';
 import { handlePlayCardInternal } from '../game/roundManager';
+import { playerReadyForNextRound } from '../game/scoringManager';
 
 export function registerPlayEvents(socket: Socket, io: Server): void {
   socket.on('play_card', (data: { cardId: string }) => {
@@ -31,5 +32,11 @@ export function registerPlayEvents(socket: Socket, io: Server): void {
     if (!tigressCard) return;
 
     handlePlayCardInternal(game, socket.id, tigressCard.id, io, data.choice);
+  });
+
+  socket.on('ready_for_next_round', () => {
+    const game = gameManager.getGameByPlayerId(socket.id);
+    if (!game) return;
+    playerReadyForNextRound(game, socket.id, io);
   });
 }

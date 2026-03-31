@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useGame } from '../hooks/GameContext';
+import { useResponsive } from '../hooks/useResponsive';
 import { GamePhase, TigressChoice } from '../types/game';
 import { theme } from '../styles/theme';
 import PlayerSidebar from '../components/game/PlayerSidebar';
@@ -8,10 +9,11 @@ import TopBar from '../components/game/TopBar';
 import PlayArea from '../components/game/PlayArea';
 import PlayerHand from '../components/game/PlayerHand';
 import TimerBar from '../components/game/TimerBar';
+import TurnIndicator from '../components/game/TurnIndicator';
 import BidModal from '../components/game/BidModal';
 import TigressModal from '../components/game/TigressModal';
 import RoundScoreModal from '../components/game/RoundScoreModal';
-import GameLog from '../components/game/GameLog';
+import RightSidebar from '../components/game/RightSidebar';
 import PiratePowerModal from '../components/game/PiratePowerModal';
 import DebugPanel from '../components/game/DebugPanel';
 
@@ -20,8 +22,8 @@ export default function GamePage() {
   const navigate = useNavigate();
   const { state, actions, clearTrickResult, clearRoundScores, clearTigress } = useGame();
   const lastPlayRef = useRef<number>(0);
+  const { isMobile, height, cardWidth, cardHeight, playedCardWidth, playedCardHeight } = useResponsive();
 
-  // Navigate to game over
   useEffect(() => {
     if (state.gameEndResult) {
       navigate(`/game-over/${roomCode}`);
@@ -31,7 +33,7 @@ export default function GamePage() {
   const game = state.game;
   if (!game) {
     return (
-      <div style={css.loadingContainer}>
+      <div style={{ ...css.loadingContainer, height }}>
         <p>Connexion en cours...</p>
         <button style={css.backBtn} onClick={() => navigate('/')}>Retour</button>
       </div>
@@ -43,7 +45,7 @@ export default function GamePage() {
 
   const handlePlayCard = (cardId: string) => {
     const now = Date.now();
-    if (now - lastPlayRef.current < 1000) return;
+    if (now - lastPlayRef.current < 300) return;
     lastPlayRef.current = now;
     actions.playCard(cardId);
   };
@@ -57,52 +59,70 @@ export default function GamePage() {
     clearTigress();
   };
 
-  const timerMs = game.config.timerSeconds > 0 ? game.config.timerSeconds * 1000 : 0;
+  const timerMs = state.playTimeoutMs;
+
+  const firstPlayerId = game.phase === 'bidding' && game.currentRound
+    ? game.players[(game.currentRound.dealerIndex + 1) % game.players.length]?.id ?? null
+    : game.playOrder?.[0] ?? null;
+
+  const discardCount = game.currentRound?.tricks.filter(t => t.isDestroyed).reduce((sum, t) => sum + t.plays.length, 0) ?? 0;
 
   return (
-    <div style={css.layout}>
-      {/* Left Sidebar: Players */}
-      <PlayerSidebar
-        players={game.players}
-        currentTurnPlayerId={state.currentTurnPlayerId}
-        myPlayerId={state.playerId}
-      />
+    <div style={{ ...css.layout, height }}>
+      {/* Left Sidebar: Players (desktop only) */}
+      {!isMobile && (
+        <PlayerSidebar
+          players={game.players}
+          currentTurnPlayerId={state.currentTurnPlayerId}
+          myPlayerId={state.playerId}
+          firstPlayerId={firstPlayerId}
+          phase={game.phase}
+          discardCount={discardCount}
+        />
+      )}
 
       {/* Main Content */}
       <div style={css.main}>
         {/* Top Bar */}
-        <TopBar game={game} />
+        <TopBar game={game} isMobile={isMobile} />
+
+        {/* Mobile: horizontal player bar */}
+        {isMobile && (
+          <MobilePlayerBar
+            players={game.players}
+            currentTurnPlayerId={state.currentTurnPlayerId}
+            myPlayerId={state.playerId}
+            firstPlayerId={firstPlayerId}
+            phase={game.phase}
+          />
+        )}
 
         {/* Back to lobby button */}
-        <button style={css.lobbyBtn} onClick={() => {
-          actions.leaveRoom();
-          navigate('/');
-        }}>
-          {'\u2190'}
-        </button>
+        {!isMobile && (
+          <button style={css.lobbyBtn} onClick={() => {
+            actions.leaveRoom();
+            navigate('/');
+          }}>
+            {'\u2190'}
+          </button>
+        )}
 
-        {/* Timer */}
-        <TimerBar
-          durationMs={timerMs}
+        {/* Turn indicator / Timer */}
+        <TurnIndicator
           active={isMyTurn && game.phase === GamePhase.PLAYING_TRICK}
+          durationMs={timerMs}
         />
 
         {/* Play Area */}
-        <PlayArea trick={currentTrick} players={game.players} />
-
-        {/* Trick result overlay */}
-        {state.trickResult && state.trickResult.winnerId && (
-          <div style={css.trickOverlay}>
-            <div style={css.trickResult}>
-              {game.players.find((p) => p.id === state.trickResult!.winnerId)?.name} remporte le pli !
-              {state.trickResult.bonuses.length > 0 && (
-                <span style={css.bonusText}>
-                  {' '}(+{state.trickResult.bonuses.reduce((s, b) => s + b.points, 0)} bonus)
-                </span>
-              )}
-            </div>
-          </div>
-        )}
+        <PlayArea
+          trick={state.trickResult?.trick ?? currentTrick}
+          players={game.players}
+          trickWinnerId={state.trickResult?.winnerId}
+          trickDestroyed={state.trickResult?.trick?.isDestroyed && !state.trickResult?.winnerId}
+          bonusPoints={state.trickResult ? state.trickResult.bonuses.reduce((s, b) => s + b.points, 0) : 0}
+          cardWidth={playedCardWidth}
+          cardHeight={playedCardHeight}
+        />
 
         {/* Player Hand */}
         <PlayerHand
@@ -110,15 +130,16 @@ export default function GamePage() {
           validCardIds={state.validCardIds}
           isMyTurn={isMyTurn && game.phase === GamePhase.PLAYING_TRICK}
           onPlayCard={handlePlayCard}
+          cardWidth={cardWidth}
+          cardHeight={cardHeight}
         />
       </div>
 
-      {/* Right Sidebar: Log */}
-      <GameLog logs={game.logs} />
+      {/* Right Sidebar (desktop: side panel, mobile: drawer) */}
+      <RightSidebar logs={game.logs} isMobile={isMobile} />
 
       {/* === Modals === */}
 
-      {/* Bid Modal */}
       {state.bidRequest && game.phase === GamePhase.BIDDING && (
         <BidModal
           maxBid={state.bidRequest.maxBid}
@@ -128,12 +149,10 @@ export default function GamePage() {
         />
       )}
 
-      {/* Tigress Choice */}
       {state.tigressPending && (
         <TigressModal onChoose={handleTigressChoice} />
       )}
 
-      {/* Pirate Power */}
       {state.piratePowerRequest && game.pendingPiratePower && game.pendingPiratePower.playerId === state.playerId && (
         <PiratePowerModal
           type={state.piratePowerRequest.type}
@@ -147,17 +166,15 @@ export default function GamePage() {
           onWillDiscard={(ids) => actions.willDiscard(ids)}
           onRascalBet={(amt) => actions.rascalBet(amt)}
           onDefault={() => {
-            // Default action per pirate type
             if (state.piratePowerRequest?.type === 'rosie_choose_leader') actions.rosieChooseLeader(state.playerId || '');
             else if (state.piratePowerRequest?.type === 'rascal_bet') actions.rascalBet(0);
           }}
         />
       )}
 
-      {/* Harry Adjust */}
       {state.harryAdjustRequest && game.pendingPiratePower?.playerId === state.playerId && (
         <div style={css.overlay}>
-          <div style={css.harryModal}>
+          <div style={{ ...css.harryModal, minWidth: isMobile ? 'auto' : 300, width: isMobile ? '90%' : 'auto' }}>
             <h2 style={{ color: theme.colors.gold, textAlign: 'center', marginBottom: 12 }}>Harry - Ajuster la mise</h2>
             <p style={{ color: theme.colors.textDim, textAlign: 'center', marginBottom: 16 }}>
               Mise actuelle : {state.harryAdjustRequest.currentBid}
@@ -172,26 +189,123 @@ export default function GamePage() {
         </div>
       )}
 
-      {/* Round Scores */}
       {state.roundScores && (
         <RoundScoreModal
           scores={state.roundScores.scores}
           roundNumber={state.roundScores.roundNumber}
           players={game.players}
-          onClose={clearRoundScores}
+          readyPlayerIds={state.roundScores.readyPlayerIds || []}
+          isReady={state.roundScores.readyPlayerIds?.includes(state.playerId || '') ?? false}
+          onReady={() => actions.readyForNextRound()}
         />
       )}
 
-      {/* Debug Panel */}
       <DebugPanel game={game} />
     </div>
   );
 }
 
+// Mobile horizontal player bar
+function MobilePlayerBar({ players, currentTurnPlayerId, myPlayerId, firstPlayerId, phase }: {
+  players: any[];
+  currentTurnPlayerId: string | null;
+  myPlayerId: string | null;
+  firstPlayerId: string | null;
+  phase: string;
+}) {
+  const isBidding = phase === 'bidding';
+
+  return (
+    <div style={mobileCss.playerBar}>
+      {players.filter(p => !p.isGhost).map(player => {
+        const isActive = player.id === currentTurnPlayerId;
+        const isMe = player.id === myPlayerId;
+        const isLeader = player.id === firstPlayerId;
+        const hasBid = player.roundState.bid !== null;
+
+        return (
+          <div key={player.id} style={{
+            ...mobileCss.playerPill,
+            ...(isActive ? mobileCss.activePill : {}),
+            ...(isMe ? mobileCss.mePill : {}),
+          }}>
+            {isLeader && <span style={mobileCss.starIcon}>{'\u2605'}</span>}
+            <span style={mobileCss.playerName}>
+              {player.isBot ? '\u{1F916}' : ''}{player.name.substring(0, 6)}
+            </span>
+            <span style={mobileCss.playerScore}>{player.score}</span>
+            <div style={mobileCss.pillStats}>
+              <span style={mobileCss.pillStat}>
+                M:{isBidding && !isMe ? (hasBid ? '\u2713' : '-') : (player.roundState.bid ?? '-')}
+              </span>
+              <span style={mobileCss.pillStat}>P:{player.roundState.tricksWon}</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+const mobileCss: Record<string, React.CSSProperties> = {
+  playerBar: {
+    display: 'flex',
+    gap: 6,
+    padding: '6px 8px',
+    overflowX: 'auto',
+    background: theme.colors.bgLight,
+    borderBottom: `1px solid ${theme.colors.border}`,
+    flexShrink: 0,
+  },
+  playerPill: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    padding: '4px 8px',
+    borderRadius: 8,
+    background: theme.colors.bgCard,
+    minWidth: 60,
+    flexShrink: 0,
+    gap: 1,
+  },
+  activePill: {
+    background: 'rgba(212, 168, 67, 0.2)',
+    border: `1px solid ${theme.colors.gold}`,
+  },
+  mePill: {
+    borderBottom: `2px solid ${theme.colors.gold}`,
+  },
+  starIcon: {
+    fontSize: 10,
+    color: theme.colors.gold,
+  },
+  playerName: {
+    fontSize: 9,
+    color: theme.colors.text,
+    fontWeight: 'bold',
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    maxWidth: 60,
+  },
+  playerScore: {
+    fontSize: 13,
+    fontWeight: 'bold',
+    color: theme.colors.gold,
+  },
+  pillStats: {
+    display: 'flex',
+    gap: 4,
+  },
+  pillStat: {
+    fontSize: 8,
+    color: theme.colors.textMuted,
+  },
+};
+
 const css: Record<string, React.CSSProperties> = {
   layout: {
     display: 'flex',
-    height: '100vh',
     overflow: 'hidden',
     background: theme.colors.bg,
   },
@@ -207,7 +321,6 @@ const css: Record<string, React.CSSProperties> = {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
-    height: '100vh',
     gap: 20,
     color: theme.colors.textDim,
   },
@@ -237,28 +350,6 @@ const css: Record<string, React.CSSProperties> = {
     alignItems: 'center',
     justifyContent: 'center',
   },
-  trickOverlay: {
-    position: 'absolute',
-    top: '40%',
-    left: '50%',
-    transform: 'translate(-50%, -50%)',
-    zIndex: 30,
-    pointerEvents: 'none',
-  },
-  trickResult: {
-    background: 'rgba(10, 14, 23, 0.9)',
-    border: `2px solid ${theme.colors.gold}`,
-    borderRadius: 12,
-    padding: '12px 24px',
-    color: theme.colors.gold,
-    fontSize: 18,
-    fontWeight: 'bold',
-    textAlign: 'center',
-  },
-  bonusText: {
-    color: theme.colors.green,
-    fontSize: 14,
-  },
   overlay: {
     position: 'fixed',
     inset: 0,
@@ -273,7 +364,6 @@ const css: Record<string, React.CSSProperties> = {
     border: `1px solid ${theme.colors.border}`,
     borderRadius: 16,
     padding: 24,
-    minWidth: 300,
   },
   harryBtn: {
     padding: '12px 24px',

@@ -35,14 +35,14 @@ export function playCard(
     return { success: false, reason: 'Card not in hand', needsTigressChoice: false, trickComplete: false };
   }
 
-  // Prevent playing twice in the same trick
-  if (trick.plays.some((p) => p.playerId === playerId)) {
-    return { success: false, reason: 'Already played in this trick', needsTigressChoice: false, trickComplete: false };
-  }
-
   const trick = getCurrentTrick(game);
   if (!trick) {
     return { success: false, reason: 'No current trick', needsTigressChoice: false, trickComplete: false };
+  }
+
+  // Prevent playing twice in the same trick
+  if (trick.plays.some((p) => p.playerId === playerId)) {
+    return { success: false, reason: 'Already played in this trick', needsTigressChoice: false, trickComplete: false };
   }
 
   // Validate the play

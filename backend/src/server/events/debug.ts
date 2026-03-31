@@ -83,6 +83,51 @@ export function registerDebugEvents(socket: Socket, io: Server): void {
     startRound(game, io);
   });
 
+  // Add a specific card to current player's hand
+  socket.on('debug_add_card', (data: { cardId: string }) => {
+    const game = gameManager.getGameByPlayerId(socket.id);
+    if (!game || !game.isDebugMode) return;
+
+    const player = game.players.find((p) => p.id === socket.id);
+    if (!player) return;
+
+    const allCards = buildDeck(game.config.withExtensions);
+    const card = allCards.find((c) => c.id === data.cardId);
+    if (!card) return;
+
+    player.hand.push(card);
+    gameManager.updateGame(game);
+    socket.emit('cards_dealt', { hand: player.hand });
+
+    // Re-emit play_turn with updated validCardIds if it's this player's turn
+    if (game.phase === GamePhase.PLAYING_TRICK && game.playOrder[game.currentPlayerIndex] === socket.id) {
+      const { getValidCards } = require('../../game-logic/rules/validation');
+      const trick = game.currentRound?.tricks[game.currentRound.currentTrickIndex];
+      if (trick) {
+        const validCards = getValidCards(player, trick);
+        io.to(game.roomCode).emit('play_turn', {
+          playerId: socket.id,
+          timeoutMs: 0,
+          validCardIds: validCards.map((c: any) => c.id),
+        });
+      }
+    }
+  });
+
+  // List all possible card IDs
+  socket.on('debug_list_cards', () => {
+    const game = gameManager.getGameByPlayerId(socket.id);
+    if (!game || !game.isDebugMode) return;
+
+    const allCards = buildDeck(game.config.withExtensions);
+    const specialCards = allCards.filter(c => c.kind === 'special').map(c => ({
+      id: c.id,
+      type: c.type,
+      name: c.pirateName || c.type,
+    }));
+    socket.emit('debug_card_list', { specialCards });
+  });
+
   socket.on('debug_get_game_state', () => {
     const game = gameManager.getGameByPlayerId(socket.id);
     if (!game || !game.isDebugMode) return;
